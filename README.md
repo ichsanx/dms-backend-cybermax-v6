@@ -1,174 +1,193 @@
-# Document Management System (DMS) Backend  
-**Technical Test Submission – Software Engineer (Mid-Level)**
+# 📄 Document Management System (DMS) Backend
+
+**Technical Test Submission -- Software Engineer (Mid-Level)**
 
 Repository: https://github.com/ichsanx/dms-backend-cybermax
 
----
+------------------------------------------------------------------------
 
-## Overview
+## 🧩 Overview
 
-This project is a backend implementation of a **Document Management System (DMS)** built with:
+This project is a backend implementation of a **Document Management
+System (DMS)** built with:
 
-- **NestJS (TypeScript)**
-- **Prisma ORM**
-- **PostgreSQL**
-- **JWT Authentication**
-- **Role-Based Access Control** (USER / ADMIN)
+-   **NestJS (TypeScript)**
+-   **Prisma ORM**
+-   **PostgreSQL**
+-   **JWT Authentication**
+-   **Role-Based Access Control (USER / ADMIN)**
 
-It simulates a real enterprise workflow including approval processes and notifications.
+The system simulates a real enterprise document workflow including
+approval processes, transactional safety, and notification handling.
 
-> **Enterprise note:** The system emphasizes transactional consistency, role isolation, and workflow integrity.  
-> Designed with scalability and microservice migration in mind.
+> **Enterprise Perspective:**\
+> The system emphasizes transactional consistency, workflow integrity,
+> proper role isolation, and is designed with scalability and
+> microservice migration in mind.
 
----
+------------------------------------------------------------------------
 
-## Features
+# 🏗 Architecture Overview
 
-### Authentication
-- Register & Login (JWT)
-- JWT-protected APIs
-- Roles: **USER**, **ADMIN**
+User → Auth → Document → Approval → Notification
 
-### Document Management
-- Upload document
-- List documents with **pagination + search**
-- View document detail
-- Replace document (**requires approval**)
-- Delete document (**requires approval**)
-- Version increment on replace
-- Status: `ACTIVE`, `PENDING_DELETE`, `PENDING_REPLACE`
+### Replace/Delete Workflow
 
-### Approval Workflow
-- USER submits replace/delete request
-- System creates permission request + notifies ADMIN
-- Document is locked while pending
-- ADMIN can **approve** or **reject**
-- Transaction-safe approve/reject
+User requests replace/delete\
+↓\
+Create approval request\
+↓\
+Lock document (PENDING state)\
+↓\
+Admin approves/rejects\
+↓\
+Execute transaction:\
+- Update document\
+- Update approval status\
+- Create notification\
+↓\
+Notify user
 
-### Notification System
-- Stored in DB
-- List notifications
-- Mark as read
-- Triggered on approval/rejection
+------------------------------------------------------------------------
 
----
+# 🚀 Features
 
-## Project Structure (High-Level)
+## 🔐 Authentication
 
-- `src/auth` → auth, jwt strategy, roles guard
-- `src/documents` → documents CRUD + request replace/delete
-- `src/approvals` → admin approve/reject workflows
-- `src/notifications` → notifications APIs
-- `src/prisma` → prisma module/service
-- `prisma/` → schema + migrations + seeds
+-   Register & Login (JWT)
+-   JWT-protected APIs
+-   Role-based access control (USER / ADMIN)
 
----
+## 📂 Document Management
 
-## How to Run (Local)
+-   Upload document
+-   List documents with pagination & search
+-   View document detail
+-   Replace document (requires approval)
+-   Delete document (requires approval)
+-   Automatic version increment on replace
+-   Status: ACTIVE, PENDING_DELETE, PENDING_REPLACE
 
-### Prerequisites
-- Node.js 18+ (recommended)
-- PostgreSQL
+## 🧾 Approval Workflow
 
-### 1) Install dependencies
-```bash
+-   USER submits replace/delete request
+-   System creates approval request
+-   Document is locked while pending
+-   ADMIN can approve or reject
+-   Approval handled using database transactions
+-   Notification automatically triggered
+
+## 🔔 Notification System
+
+-   Stored in database
+-   List notifications per user
+-   Mark notification as read
+
+------------------------------------------------------------------------
+
+# 🛠 How to Run (Local Development)
+
+## Prerequisites
+
+-   Node.js 18+
+-   PostgreSQL
+
+### 1) Install Dependencies
+
 npm install
-```
 
-### 2) Configure environment
+### 2) Configure Environment
+
 Create a `.env` file:
 
-```env
-DATABASE_URL="postgresql://postgres:password@localhost:5432/dms_db"
-JWT_SECRET="your_super_secret_key"
+DATABASE_URL="postgresql://postgres:password@localhost:5432/dms_db"\
+JWT_SECRET="your_super_secret_key"\
 PORT=3000
-```
 
-### 3) Run migrations
-```bash
+### 3) Run Prisma Migration
+
 npx prisma migrate dev
-```
 
-(Optional) Seed data if you have seed scripts:
-```bash
-npx prisma db seed
-```
+(Optional) Seed database: npx prisma db seed
 
-### 4) Start development server
-```bash
+### 4) Start Development Server
+
 npm run start:dev
-```
 
-Server runs on:
-- `http://localhost:3000`
-- Static uploads served at: `http://localhost:3000/uploads/<filename>` (dev convenience)
+Server runs at: http://localhost:3000
 
----
+------------------------------------------------------------------------
 
-## API Endpoint Documentation
+# 🐳 Running with Docker (Optional)
 
-> Base URL: `http://localhost:3000`
+docker-compose up --build
 
-### Auth
-- `POST /auth/register`
-- `POST /auth/login`
-- `GET /auth/me` (JWT required)
+------------------------------------------------------------------------
 
-### Documents (JWT required)
-- `GET /documents?q=&page=&limit=`
-- `GET /documents/:id`
-- `POST /documents` (multipart/form-data: `file`, plus `title`, `description`, `documentType`)
-- `DELETE /documents/:id` (request delete → creates permission request)
-- `POST /documents/:id/replace` (multipart/form-data: `file`, optional fields to update)
+# 📡 API Documentation
 
-### Approvals (ADMIN only, JWT required)
-- `GET /approvals/requests` (list pending requests)
-- `POST /approvals/requests/:id/approve`
-- `POST /approvals/requests/:id/reject`
+Base URL: http://localhost:3000
 
-### Notifications (JWT required)
-- `GET /notifications` (list)
-- `POST /notifications/:id/read` (mark as read)
+## Auth
 
----
+-   POST /auth/register
+-   POST /auth/login
+-   GET /auth/me
 
-## System Design Answers (Mid-Level)
+## Documents (JWT required)
 
-### 1) Large file upload handling
-- **Current:** Multer disk storage + file size limit (e.g., 10MB).
-- **Scaling approach:** Use **streaming upload** to object storage (S3/MinIO). Prefer **pre-signed URLs** so the API does not proxy large payloads.
-- Add antivirus scanning and content-type validation in async pipeline.
+-   GET /documents?q=&page=&limit=
+-   GET /documents/:id
+-   POST /documents (multipart/form-data)
+-   DELETE /documents/:id
+-   POST /documents/:id/replace
 
-### 2) Lost update prevention (replace documents)
-- Use **status locking** (`PENDING_REPLACE`) to block concurrent replace/delete.
-- Use **transactions** for approve operations (document update + request status + notification).
-- Add **optimistic concurrency** using `version` (or `updatedAt`) checks to reject stale updates.
+## Approvals (ADMIN only)
 
-### 3) Notification scalability
-- **Current:** Store notifications in DB and query by user.
-- **Scaling approach:** Publish events to a queue (Redis/Kafka/RabbitMQ) and process with workers.
-- Separate notification service + WebSocket/SSE if needed.
+-   GET /approvals/requests
+-   POST /approvals/requests/:id/approve
+-   POST /approvals/requests/:id/reject
 
-### 4) File security
-- Protect file operations via **JWT + RBAC**.
-- Avoid direct public access; serve via **signed URL** or authenticated endpoint.
-- Validate MIME type, sanitize names, enforce size limits.
+## Notifications
 
-### 5) Microservice migration strategy
-- Modular design maps cleanly to services:
-  - Auth Service, Document Service, Approval Service, Notification Service
-- Introduce event bus + contracts to decouple.
-- Extract persistence per service over time.
+-   GET /notifications
+-   POST /notifications/:id/read
 
----
+------------------------------------------------------------------------
 
-## Notes (Bahasa Indonesia)
+# 🧠 System Design Considerations
 
-- Workflow enterprise: **request → lock → approve/reject → notif**.
-- Replace/Delete **tidak langsung dieksekusi**, harus disetujui ADMIN.
-- Approve dilakukan dalam **transaction** supaya konsisten.
+## Large File Upload Handling
 
----
+-   Multer disk storage (current)
+-   File size limit
+-   Scaling: Streaming to S3/MinIO + pre-signed URLs
 
-## Author
-**Ichsan Saputra**
+## Lost Update Prevention
+
+-   Status locking
+-   Database transactions
+-   Optimistic concurrency control (version field)
+
+## Notification Scalability
+
+-   Current: Stored in DB
+-   Scaling: Message queue + workers + WebSocket/SSE
+
+## File Security
+
+-   JWT + RBAC
+-   Signed URL or authenticated endpoint
+-   MIME validation + filename sanitization
+
+## Microservice Migration Strategy
+
+-   Modular structure
+-   Event-driven communication
+-   Extract services gradually
+
+------------------------------------------------------------------------
+
+# 👤 Author
+
+Ichsan Saputra
