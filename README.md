@@ -1,98 +1,174 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Document Management System (DMS) Backend  
+**Technical Test Submission – Software Engineer (Mid-Level)**
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+Repository: https://github.com/ichsanx/dms-backend-cybermax
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+---
 
-## Description
+## Overview
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+This project is a backend implementation of a **Document Management System (DMS)** built with:
 
-## Project setup
+- **NestJS (TypeScript)**
+- **Prisma ORM**
+- **PostgreSQL**
+- **JWT Authentication**
+- **Role-Based Access Control** (USER / ADMIN)
 
+It simulates a real enterprise workflow including approval processes and notifications.
+
+> **Enterprise note:** The system emphasizes transactional consistency, role isolation, and workflow integrity.  
+> Designed with scalability and microservice migration in mind.
+
+---
+
+## Features
+
+### Authentication
+- Register & Login (JWT)
+- JWT-protected APIs
+- Roles: **USER**, **ADMIN**
+
+### Document Management
+- Upload document
+- List documents with **pagination + search**
+- View document detail
+- Replace document (**requires approval**)
+- Delete document (**requires approval**)
+- Version increment on replace
+- Status: `ACTIVE`, `PENDING_DELETE`, `PENDING_REPLACE`
+
+### Approval Workflow
+- USER submits replace/delete request
+- System creates permission request + notifies ADMIN
+- Document is locked while pending
+- ADMIN can **approve** or **reject**
+- Transaction-safe approve/reject
+
+### Notification System
+- Stored in DB
+- List notifications
+- Mark as read
+- Triggered on approval/rejection
+
+---
+
+## Project Structure (High-Level)
+
+- `src/auth` → auth, jwt strategy, roles guard
+- `src/documents` → documents CRUD + request replace/delete
+- `src/approvals` → admin approve/reject workflows
+- `src/notifications` → notifications APIs
+- `src/prisma` → prisma module/service
+- `prisma/` → schema + migrations + seeds
+
+---
+
+## How to Run (Local)
+
+### Prerequisites
+- Node.js 18+ (recommended)
+- PostgreSQL
+
+### 1) Install dependencies
 ```bash
-$ npm install
+npm install
 ```
 
-## Compile and run the project
+### 2) Configure environment
+Create a `.env` file:
 
-```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+```env
+DATABASE_URL="postgresql://postgres:password@localhost:5432/dms_db"
+JWT_SECRET="your_super_secret_key"
+PORT=3000
 ```
 
-## Run tests
-
+### 3) Run migrations
 ```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+npx prisma migrate dev
 ```
 
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
-
+(Optional) Seed data if you have seed scripts:
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+npx prisma db seed
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+### 4) Start development server
+```bash
+npm run start:dev
+```
 
-## Resources
+Server runs on:
+- `http://localhost:3000`
+- Static uploads served at: `http://localhost:3000/uploads/<filename>` (dev convenience)
 
-Check out a few resources that may come in handy when working with NestJS:
+---
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+## API Endpoint Documentation
 
-## Support
+> Base URL: `http://localhost:3000`
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+### Auth
+- `POST /auth/register`
+- `POST /auth/login`
+- `GET /auth/me` (JWT required)
 
-## Stay in touch
+### Documents (JWT required)
+- `GET /documents?q=&page=&limit=`
+- `GET /documents/:id`
+- `POST /documents` (multipart/form-data: `file`, plus `title`, `description`, `documentType`)
+- `DELETE /documents/:id` (request delete → creates permission request)
+- `POST /documents/:id/replace` (multipart/form-data: `file`, optional fields to update)
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+### Approvals (ADMIN only, JWT required)
+- `GET /approvals/requests` (list pending requests)
+- `POST /approvals/requests/:id/approve`
+- `POST /approvals/requests/:id/reject`
 
-## License
+### Notifications (JWT required)
+- `GET /notifications` (list)
+- `POST /notifications/:id/read` (mark as read)
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+---
+
+## System Design Answers (Mid-Level)
+
+### 1) Large file upload handling
+- **Current:** Multer disk storage + file size limit (e.g., 10MB).
+- **Scaling approach:** Use **streaming upload** to object storage (S3/MinIO). Prefer **pre-signed URLs** so the API does not proxy large payloads.
+- Add antivirus scanning and content-type validation in async pipeline.
+
+### 2) Lost update prevention (replace documents)
+- Use **status locking** (`PENDING_REPLACE`) to block concurrent replace/delete.
+- Use **transactions** for approve operations (document update + request status + notification).
+- Add **optimistic concurrency** using `version` (or `updatedAt`) checks to reject stale updates.
+
+### 3) Notification scalability
+- **Current:** Store notifications in DB and query by user.
+- **Scaling approach:** Publish events to a queue (Redis/Kafka/RabbitMQ) and process with workers.
+- Separate notification service + WebSocket/SSE if needed.
+
+### 4) File security
+- Protect file operations via **JWT + RBAC**.
+- Avoid direct public access; serve via **signed URL** or authenticated endpoint.
+- Validate MIME type, sanitize names, enforce size limits.
+
+### 5) Microservice migration strategy
+- Modular design maps cleanly to services:
+  - Auth Service, Document Service, Approval Service, Notification Service
+- Introduce event bus + contracts to decouple.
+- Extract persistence per service over time.
+
+---
+
+## Notes (Bahasa Indonesia)
+
+- Workflow enterprise: **request → lock → approve/reject → notif**.
+- Replace/Delete **tidak langsung dieksekusi**, harus disetujui ADMIN.
+- Approve dilakukan dalam **transaction** supaya konsisten.
+
+---
+
+## Author
+**Ichsan Saputra**
