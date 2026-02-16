@@ -1,193 +1,205 @@
-# 📄 Document Management System (DMS) Backend
+# Document Management System (DMS) Backend
 
-**Technical Test Submission -- Software Engineer (Mid-Level)**
+**Technical Test Submission — Software Engineer (Senior-Level)**  
+Repository: https://github.com/ichsanx/dms-backend-cybermax-v6
 
-Repository: https://github.com/ichsanx/dms-backend-cybermax
+---
 
-------------------------------------------------------------------------
+## 1. Overview
 
-## 🧩 Overview
+This repository contains a backend implementation of a **Document Management System (DMS)** designed to simulate a production-grade workflow: document upload, controlled replacement/deletion via approval, and user notifications.
 
-This project is a backend implementation of a **Document Management
-System (DMS)** built with:
+**Tech Stack**
+- **NestJS (TypeScript)**
+- **Prisma ORM**
+- **PostgreSQL**
+- **JWT Authentication**
+- **RBAC (USER / ADMIN)**
+- **Multer (disk storage) for file uploads**
+- **Swagger** for API exploration
 
--   **NestJS (TypeScript)**
--   **Prisma ORM**
--   **PostgreSQL**
--   **JWT Authentication**
--   **Role-Based Access Control (USER / ADMIN)**
+**Core Idea**
+- Document changes that are sensitive (REPLACE / DELETE) are **not executed immediately**.
+- A **PermissionRequest** is created and the document is moved into a **locked status** (`PENDING_*`).
+- Only an **ADMIN** can approve/reject.
+- The system ensures **transactional integrity**: document update + request update + notification are committed atomically.
 
-The system simulates a real enterprise document workflow including
-approval processes, transactional safety, and notification handling.
+---
 
-> **Enterprise Perspective:**\
-> The system emphasizes transactional consistency, workflow integrity,
-> proper role isolation, and is designed with scalability and
-> microservice migration in mind.
+## 2. Domain Model (High-Level)
 
-------------------------------------------------------------------------
+### Document
+- `status`: `ACTIVE | PENDING_REPLACE | PENDING_DELETE`
+- `version`: increments on approved REPLACE
 
-# 🏗 Architecture Overview
+### PermissionRequest
+- `type`: `REPLACE | DELETE`
+- `status`: `PENDING | APPROVED | REJECTED`
+- `replaceFileUrl`: populated during request (for REPLACE)
 
-User → Auth → Document → Approval → Notification
+### Notification
+- created for both USER and ADMIN events (request created, approved/rejected)
 
-### Replace/Delete Workflow
+---
 
-User requests replace/delete\
-↓\
-Create approval request\
-↓\
-Lock document (PENDING state)\
-↓\
-Admin approves/rejects\
-↓\
-Execute transaction:\
-- Update document\
-- Update approval status\
-- Create notification\
-↓\
-Notify user
+## 3. Workflow
 
-------------------------------------------------------------------------
+### 3.1 Replace Flow (USER → ADMIN → USER)
+1. USER uploads/has an existing document
+2. USER requests replace with a new file  
+   → system creates `PermissionRequest(REPLACE)`  
+   → document becomes `PENDING_REPLACE` (locked)
+3. ADMIN lists pending approvals and approves  
+   → transaction:
+   - update document `fileUrl` + increment `version` + set `ACTIVE`
+   - mark request `APPROVED`
+   - create notification for USER
+4. USER verifies:
+   - `/documents` shows updated `fileUrl` and incremented `version`
+   - `/notifications` contains “approved” message
 
-# 🚀 Features
+### 3.2 Delete Flow (USER → ADMIN → USER)
+1. USER requests delete  
+   → system creates `PermissionRequest(DELETE)`  
+   → document becomes `PENDING_DELETE`
+2. ADMIN approves  
+   → transaction:
+   - delete document (or soft-delete if configured)
+   - mark request `APPROVED`
+   - create notification for USER
+3. USER verifies:
+   - document no longer exists (GET by id returns 404)
+   - notification exists
 
-## 🔐 Authentication
+---
 
--   Register & Login (JWT)
--   JWT-protected APIs
--   Role-based access control (USER / ADMIN)
+## 4. Key Engineering Considerations
 
-## 📂 Document Management
+### Transaction Safety (Atomicity)
+Approval execution uses a database transaction to avoid partial updates:
+- prevents “request approved but document not updated”
+- prevents “document updated but notification missing”
 
--   Upload document
--   List documents with pagination & search
--   View document detail
--   Replace document (requires approval)
--   Delete document (requires approval)
--   Automatic version increment on replace
--   Status: ACTIVE, PENDING_DELETE, PENDING_REPLACE
+### Concurrency & Lost Update Prevention
+- Document state is locked via status transitions to `PENDING_*`
+- Versioning provides a basis for optimistic concurrency strategies
 
-## 🧾 Approval Workflow
+### Security
+- JWT-protected endpoints
+- RBAC gates ADMIN-only routes (approval listing / approval actions)
+- File upload guarded by authentication and type validation
 
--   USER submits replace/delete request
--   System creates approval request
--   Document is locked while pending
--   ADMIN can approve or reject
--   Approval handled using database transactions
--   Notification automatically triggered
+### Scalability Notes (Future Evolution)
+- File storage can be migrated to S3/MinIO with pre-signed URLs
+- Notifications can move to async processing via queue + workers
+- Approval events can become domain events (event-driven architecture)
 
-## 🔔 Notification System
+---
 
--   Stored in database
--   List notifications per user
--   Mark notification as read
+## 5. Running Locally
 
-------------------------------------------------------------------------
+### Requirements
+- Node.js **18+**
+- PostgreSQL
+- npm
 
-# 🛠 How to Run (Local Development)
-
-## Prerequisites
-
--   Node.js 18+
--   PostgreSQL
-
-### 1) Install Dependencies
-
+### 5.1 Setup
+```bash
 npm install
+```
 
-### 2) Configure Environment
-
-Create a `.env` file:
-
-DATABASE_URL="postgresql://postgres:password@localhost:5432/dms_db"\
-JWT_SECRET="your_super_secret_key"\
+Create `.env`:
+```env
+DATABASE_URL="postgresql://postgres:password@localhost:5432/dms_db"
+JWT_SECRET="your_super_secret_key"
 PORT=3000
+```
 
-### 3) Run Prisma Migration
-
+Run migration:
+```bash
 npx prisma migrate dev
+```
 
-(Optional) Seed database: npx prisma db seed
+(Optional) seed:
+```bash
+npx prisma db seed
+```
 
-### 4) Start Development Server
-
+Run server:
+```bash
 npm run start:dev
+```
 
-Server runs at: http://localhost:3000
+Server: `http://localhost:3000`
 
-------------------------------------------------------------------------
+Swagger: `http://localhost:3000/api`
 
-# 🐳 Running with Docker (Optional)
+---
 
+## 6. Docker (Optional)
+```bash
 docker-compose up --build
+```
 
-------------------------------------------------------------------------
+---
 
-# 📡 API Documentation
+## 7. API Summary
 
-Base URL: http://localhost:3000
+> Explore full spec via Swagger (`/api`)
 
-## Auth
+### Auth
+- `POST /auth/register`
+- `POST /auth/login`
+- `GET /auth/me`
 
--   POST /auth/register
--   POST /auth/login
--   GET /auth/me
+### Documents
+- `GET /documents?q=&page=&limit=`
+- `GET /documents/:id`
+- `POST /documents` (multipart/form-data)
+- `POST /documents/:id/request-replace` (multipart/form-data)
+- `POST /documents/:id/request-delete`
 
-## Documents (JWT required)
+### Approvals (ADMIN only)
+- `GET /approvals/requests`
+- `POST /approvals/requests/:id/approve`
+- `POST /approvals/requests/:id/reject`
 
--   GET /documents?q=&page=&limit=
--   GET /documents/:id
--   POST /documents (multipart/form-data)
--   DELETE /documents/:id
--   POST /documents/:id/replace
+### Notifications
+- `GET /notifications`
+- `POST /notifications/:id/read`
 
-## Approvals (ADMIN only)
+---
 
--   GET /approvals/requests
--   POST /approvals/requests/:id/approve
--   POST /approvals/requests/:id/reject
+## 8. Test Checklist (What Reviewers Typically Look For)
 
-## Notifications
+### Replace (must pass)
+1. USER creates a document (upload)
+2. USER requests REPLACE → document becomes `PENDING_REPLACE`
+3. ADMIN approves REPLACE
+4. Verify:
+   - document `fileUrl` changed
+   - `version` increments
+   - USER receives notification
 
--   GET /notifications
--   POST /notifications/:id/read
+### Delete (must pass)
+1. USER requests DELETE → document becomes `PENDING_DELETE`
+2. ADMIN approves DELETE
+3. Verify:
+   - document removed / cannot be fetched
+   - USER receives notification
 
-------------------------------------------------------------------------
+### Security (must demonstrate)
+- USER cannot access `GET /approvals/requests` → expect **403**
+- USER cannot call approve endpoint → expect **403**
+- ADMIN can access approvals endpoints → expect **200/201**
 
-# 🧠 System Design Considerations
+---
 
-## Large File Upload Handling
+## 9. Notes for Review
+- The approval + notification mechanism is designed to be **transactional, auditable, and extensible**.
+- The system intentionally separates “request” from “execution” to mirror real enterprise governance workflows.
 
--   Multer disk storage (current)
--   File size limit
--   Scaling: Streaming to S3/MinIO + pre-signed URLs
+---
 
-## Lost Update Prevention
-
--   Status locking
--   Database transactions
--   Optimistic concurrency control (version field)
-
-## Notification Scalability
-
--   Current: Stored in DB
--   Scaling: Message queue + workers + WebSocket/SSE
-
-## File Security
-
--   JWT + RBAC
--   Signed URL or authenticated endpoint
--   MIME validation + filename sanitization
-
-## Microservice Migration Strategy
-
--   Modular structure
--   Event-driven communication
--   Extract services gradually
-
-------------------------------------------------------------------------
-
-# 👤 Author
-
-Ichsan Saputra
+## Author
+**Ichsan Saputra**
