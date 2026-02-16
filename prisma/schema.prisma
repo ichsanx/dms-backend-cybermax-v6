@@ -4,8 +4,9 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  // ⚠️ Prisma kamu pakai prisma.config.ts, jadi URL jangan ditaruh di schema
+  url      = env("DATABASE_URL")
 }
+
 
 model User {
   id                 String              @id @default(uuid())

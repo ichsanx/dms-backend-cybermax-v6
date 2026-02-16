@@ -48,10 +48,27 @@ export class ApprovalsService {
     }
     if (!req.document) throw new NotFoundException('Document not found');
 
+    // ✅ VALIDASI STATUS DOKUMEN (wajib supaya tidak approve request "nyasar")
+    if (
+      req.type === PermissionType.DELETE &&
+      req.document.status !== DocumentStatus.PENDING_DELETE
+    ) {
+      throw new BadRequestException(
+        `Document status invalid for DELETE approval: ${req.document.status}`,
+      );
+    }
+    if (
+      req.type === PermissionType.REPLACE &&
+      req.document.status !== DocumentStatus.PENDING_REPLACE
+    ) {
+      throw new BadRequestException(
+        `Document status invalid for REPLACE approval: ${req.document.status}`,
+      );
+    }
+
     return this.prisma.$transaction(async (tx) => {
       // ====== APPROVE: DELETE ======
       if (req.type === PermissionType.DELETE) {
-        // Notif dulu (judul dokumen masih ada)
         await tx.notification.create({
           data: {
             userId: req.requestedById,
@@ -59,13 +76,11 @@ export class ApprovalsService {
           },
         });
 
-        // tandai request approved (optional, tapi enak buat audit)
         await tx.permissionRequest.update({
           where: { id: requestId },
           data: { status: RequestStatus.APPROVED },
         });
 
-        // delete document (PermissionRequest terhapus otomatis karena onDelete: Cascade)
         await tx.document.delete({ where: { id: req.documentId } });
 
         return { ok: true, message: 'Delete approved & document deleted' };
@@ -87,7 +102,6 @@ export class ApprovalsService {
           );
         }
 
-        // update dokumen
         await tx.document.update({
           where: { id: req.documentId },
           data: {
@@ -97,13 +111,11 @@ export class ApprovalsService {
           },
         });
 
-        // update request -> approved + bersihin replaceFileUrl (rapi)
         await tx.permissionRequest.update({
           where: { id: requestId },
           data: { status: RequestStatus.APPROVED, replaceFileUrl: null },
         });
 
-        // notif
         await tx.notification.create({
           data: {
             userId: req.requestedById,
@@ -114,7 +126,7 @@ export class ApprovalsService {
         return { ok: true, message: 'Replace approved & document updated' };
       }
 
-      // fallback kalau suatu saat ada type baru
+      // fallback
       await tx.permissionRequest.update({
         where: { id: requestId },
         data: { status: RequestStatus.APPROVED },
@@ -144,6 +156,24 @@ export class ApprovalsService {
       return { ok: false, message: 'Request already processed' };
     }
     if (!req.document) throw new NotFoundException('Document not found');
+
+    // ✅ VALIDASI STATUS DOKUMEN juga saat reject (biar konsisten)
+    if (
+      req.type === PermissionType.DELETE &&
+      req.document.status !== DocumentStatus.PENDING_DELETE
+    ) {
+      throw new BadRequestException(
+        `Document status invalid for DELETE rejection: ${req.document.status}`,
+      );
+    }
+    if (
+      req.type === PermissionType.REPLACE &&
+      req.document.status !== DocumentStatus.PENDING_REPLACE
+    ) {
+      throw new BadRequestException(
+        `Document status invalid for REPLACE rejection: ${req.document.status}`,
+      );
+    }
 
     return this.prisma.$transaction(async (tx) => {
       // balikkan status dokumen biar tidak nyangkut
