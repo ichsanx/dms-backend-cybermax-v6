@@ -5,6 +5,15 @@ Repository: https://github.com/ichsanx/dms-backend-cybermax-v6
 
 ---
 
+## 📎 Evidence (Mandatory Scenarios)
+
+- **Technical Test Evidence (PDF)**: `docs/evidence/DMS_Test_Evidence_Report.pdf`  
+  (Contains before/after proof for **REPLACE**, **Notifications**, and **DELETE** flows via Swagger captures)
+
+- Evidence folder: `docs/evidence/`
+
+---
+
 ## 1. Overview
 
 This repository contains a backend implementation of a **Document Management System (DMS)** designed to simulate a production-grade workflow: document upload, controlled replacement/deletion via approval, and user notifications.
@@ -19,10 +28,10 @@ This repository contains a backend implementation of a **Document Management Sys
 - **Swagger** for API exploration
 
 **Core Idea**
-- Document changes that are sensitive (REPLACE / DELETE) are **not executed immediately**.
-- A **PermissionRequest** is created and the document is moved into a **locked status** (`PENDING_*`).
+- Sensitive document changes (**REPLACE / DELETE**) are **not executed immediately**.
+- A **PermissionRequest** is created and the document moves into a **locked status** (`PENDING_*`).
 - Only an **ADMIN** can approve/reject.
-- The system ensures **transactional integrity**: document update + request update + notification are committed atomically.
+- The system enforces **transactional integrity**: document update + request update + notification are committed atomically.
 
 ---
 
@@ -38,7 +47,9 @@ This repository contains a backend implementation of a **Document Management Sys
 - `replaceFileUrl`: populated during request (for REPLACE)
 
 ### Notification
-- created for both USER and ADMIN events (request created, approved/rejected)
+- Stored in DB
+- Created for workflow events (request created, approved/rejected)
+- Read status supported (`mark as read`)
 
 ---
 
@@ -56,7 +67,7 @@ This repository contains a backend implementation of a **Document Management Sys
    - create notification for USER
 4. USER verifies:
    - `/documents` shows updated `fileUrl` and incremented `version`
-   - `/notifications` contains “approved” message
+   - `/notifications` contains an “approved” message
 
 ### 3.2 Delete Flow (USER → ADMIN → USER)
 1. USER requests delete  
@@ -76,21 +87,21 @@ This repository contains a backend implementation of a **Document Management Sys
 ## 4. Key Engineering Considerations
 
 ### Transaction Safety (Atomicity)
-Approval execution uses a database transaction to avoid partial updates:
+Approval execution uses a database transaction to prevent partial updates:
 - prevents “request approved but document not updated”
 - prevents “document updated but notification missing”
 
 ### Concurrency & Lost Update Prevention
 - Document state is locked via status transitions to `PENDING_*`
-- Versioning provides a basis for optimistic concurrency strategies
+- Versioning provides a foundation for optimistic concurrency strategies
 
 ### Security
 - JWT-protected endpoints
 - RBAC gates ADMIN-only routes (approval listing / approval actions)
-- File upload guarded by authentication and type validation
+- File upload guarded by authentication and validation
 
 ### Scalability Notes (Future Evolution)
-- File storage can be migrated to S3/MinIO with pre-signed URLs
+- File storage can migrate to S3/MinIO with pre-signed URLs
 - Notifications can move to async processing via queue + workers
 - Approval events can become domain events (event-driven architecture)
 
@@ -130,8 +141,7 @@ Run server:
 npm run start:dev
 ```
 
-Server: `http://localhost:3000`
-
+Server: `http://localhost:3000`  
 Swagger: `http://localhost:3000/api`
 
 ---
@@ -179,14 +189,16 @@ docker-compose up --build
 4. Verify:
    - document `fileUrl` changed
    - `version` increments
-   - USER receives notification
+   - USER receives notification  
+   - Evidence: `docs/evidence/DMS_Test_Evidence_Report.pdf`
 
 ### Delete (must pass)
 1. USER requests DELETE → document becomes `PENDING_DELETE`
 2. ADMIN approves DELETE
 3. Verify:
    - document removed / cannot be fetched
-   - USER receives notification
+   - USER receives notification  
+   - Evidence: `docs/evidence/DMS_Test_Evidence_Report.pdf`
 
 ### Security (must demonstrate)
 - USER cannot access `GET /approvals/requests` → expect **403**
@@ -196,8 +208,9 @@ docker-compose up --build
 ---
 
 ## 9. Notes for Review
-- The approval + notification mechanism is designed to be **transactional, auditable, and extensible**.
-- The system intentionally separates “request” from “execution” to mirror real enterprise governance workflows.
+- Workflow intentionally separates **request** from **execution** to mirror real governance processes.
+- The approval mechanism is designed to be **transactional, auditable, and extensible**.
+- Evidence PDF is provided to validate mandatory scenarios quickly (REPLACE/DELETE/Notifications).
 
 ---
 
