@@ -12,6 +12,8 @@ Repository: https://github.com/ichsanx/dms-backend-cybermax-v6
 
 - Evidence folder: `docs/evidence/`
 
+- Klick Evidence : https://github.com/ichsanx/dms-backend-cybermax-v6/blob/main/docs/evidence/DMS_Test_Evidence_Report.pdf 
+
 ---
 
 ## 1. Overview
